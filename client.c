@@ -41,6 +41,9 @@
 #define SUB_TOTAL_LIMIT 63
 #define ROLL_LIMIT 3
 
+#define UPDATE_END          1
+#define UPDATE_CONTINUE     2
+
 char backgroundBuf[30][80];
 typedef struct _Pos{
     int y;
@@ -112,6 +115,7 @@ char preChar;
 int total;
 int subTotal;
 int bonus;
+int checkList = 0 ;
 void setStatus(const char * msg){
     strcpy(backgroundBuf[27] + 15, msg);
 }
@@ -125,8 +129,10 @@ void setSubTotal(int addNum, int id){
     sprintf(buf, "%03d", addNum);
     strncpy(backgroundBuf[pScorekPos[id][12].y]+pScorekPos[id][12].x, buf,3);
 }
-void setBonus(int id){
-    strncpy(backgroundBuf[pScorekPos[id][13].y]+pScorekPos[id][13].x, "35",2);
+void setBonus(int num ,int id){
+    char buf[3];
+    sprintf(buf, "%02d", num);
+    strncpy(backgroundBuf[pScorekPos[id][13].y]+pScorekPos[id][13].x, buf,2);
 }
 
 void setScore(int y, int x, int num){
@@ -259,7 +265,7 @@ int calYacht(){
     return 0;
 }
 
-void update(char ch);
+int update(char ch);
 
 void gotoxy(int y,int x) {
     printf("%c[%d;%df",0x1B,y,x);
@@ -401,6 +407,8 @@ void init(){
     
     //backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
 
+    checkList = 0;
+
     for(i=0;i<5;i++){
         diceData[i] = 0;
         backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(diceData[i] + '0');
@@ -449,13 +457,14 @@ int checkPosition(int y, int x, int* idx){
     }
     return POS_BOARD_CHECK;
 }
-void update(char ch){
+int update(char ch){
     //printf("%d\n", (int) ch);
     int i,j;
     int curX, nextYidx;
     int plusNum = 1;
     int curPosIdx = 0;
     char *msg = "RUN";
+    int res = UPDATE_CONTINUE;
     backgroundBuf[curUserPos.y][curUserPos.x] = preChar;
     int curPosStatus = 0;
     switch (ch)
@@ -501,6 +510,11 @@ void update(char ch){
             char * msg = 0;
             printf("\n board score check %d\n", curPosIdx);
 
+            res = UPDATE_END;
+
+            //checkList 설정하기.
+            checkList |= (1 << curPosIdx); 
+
             backgroundBuf[pCheckPos[curUserId][curPosIdx].y][pCheckPos[curUserId][curPosIdx].x] = 'v';
 
             if(ACES <= curPosIdx && curPosIdx <= SIXES){
@@ -517,7 +531,7 @@ void update(char ch){
                 if(subTotal >= SUB_TOTAL_LIMIT && bonus == 0){
                     bonus = 35;
                     addTotal += bonus;
-                    setBonus(curUserId);
+                    setBonus(bonus,curUserId);
                 }
             }else{
                 if(curPosIdx == CHOCIE){
@@ -542,6 +556,17 @@ void update(char ch){
             total += addTotal;
             setScore(pScorekPos[curUserId][curPosIdx].y, pScorekPos[curUserId][curPosIdx].x, addTotal);
             setTotal(total, curUserId);
+
+            
+            //여기에 데이터를 전송한다.
+            ReqSync reqSync = {0};
+            reqSync.userId = curUserId;
+            reqSync.addCheckIdx = curPosIdx;
+            reqSync.addCheckData = addTotal;
+            reqSync.subTotal = subTotal;
+            reqSync.bonus = bonus;
+            reqSync.total = total;
+            write(clientSocket, &reqSync, sizeof(ReqSync));
         }
         break;
     case KEY_UP:
@@ -581,6 +606,7 @@ void update(char ch){
     preChar = backgroundBuf[curUserPos.y][curUserPos.x];
     backgroundBuf[curUserPos.y][curUserPos.x] = 'o';
     
+    return res;
 }
 void draw(){
     int i;
@@ -599,14 +625,6 @@ void errorHandling(char *msg){
 }
 char recvBuf[4096];
 int clientSocket;
-int encodingCheckList(){
-    //자신의 정보를 비트마스크로 인코딩한다.
-    
-}
-void decodingCheckList(int checkList, int id){
-    //상대방의 정보를 디코딩하여 픽스값에 넣는다.
-
-}
 void protocolHandling(int protocolMode){
 
     switch (protocolMode)
@@ -618,13 +636,18 @@ void protocolHandling(int protocolMode){
         break;
     case PROTOCOL_ACK_SYNC:
         AckSync ackSync;
+        int anoterId = ackSync.userId;
         read(clientSocket, &ackSync, sizeof(AckSync));
-        
+
+        backgroundBuf[pCheckPos[anoterId][ackSync.addCheckIdx].y][pCheckPos[anoterId][ackSync.addCheckIdx].x] = 'v';
+        setScore(pScorekPos[anoterId][ackSync.addCheckIdx].y,pScorekPos[anoterId][ackSync.addCheckIdx].x, ackSync.addCheckData);
+        setSubTotal(ackSync.subTotal, anoterId);
+        setTotal(ackSync.total, anoterId);
+        setBonus(ackSync.bonus, anoterId);
         break;
     case PROTOCOL_ACK_END:
         setStatus("Game end");
         exit(0);
-
         break;
     default:
         printf("wrong protocol mode in handling %d\n", protocolMode);
@@ -671,14 +694,18 @@ int main(int argc, char** argv){
     protocolHandling(protocolMode);
 
     init();
+    draw();
 
     for(i=0;i<12;i++){
         read(clientSocket, &protocolMode, sizeof(int));
-        draw();
+        protocolHandling(protocolMode);
         while(1){
             char ch = getkey(0);
-            update(ch);
+            int res = update(ch);
             draw();
+            if(res == UPDATE_END){
+                break;
+            }
         }   
     }    
     /*

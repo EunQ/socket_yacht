@@ -19,7 +19,8 @@ typedef struct _AckReady{
 
 typedef struct _ReqSync{
     int userId; //보낸 아이디
-    int checkList;
+    int addCheckIdx;
+    int addCheckData;
     int subTotal;
     int bonus;
     int total;
@@ -27,7 +28,8 @@ typedef struct _ReqSync{
 
 typedef struct _AckSync{
     int userId; //싱크를 맞춰야할 아이디
-    int checkList;
+    int addCheckIdx;
+    int addCheckData;
     int subTotal;
     int bonus;
     int total;

@@ -38,7 +38,7 @@ void decodingProtocol(int protocolMode, char * data, void * voidRevData){
     }
 }
 
-void protocolHandling(int protocolMode, int gameCnt, int sendId, void * voidRevData){
+void protocolHandling(int protocolMode, int gameCnt, int sendId){
     //짝수는 0, 홀수는 1 idx가 가리키는 소켓으로 보낸다. sendId는 서버에 요청을 보낼 id
 
     switch (protocolMode)
@@ -51,13 +51,14 @@ void protocolHandling(int protocolMode, int gameCnt, int sendId, void * voidRevD
     case PROTOCOL_REQ_SYNC:
         AckSync ackSync;
         ReqSync reqSync;
-        memcpy((void *)&reqSync, voidRevData, sizeof(ReqSync));
+        read(clientSocket[gameCnt%2], &reqSync, sizeof(ReqSync));
         ackSync.userId = reqSync.userId;
-        ackSync.checkList = reqSync.checkList;
+        ackSync.addCheckIdx = reqSync.addCheckIdx;
+        ackSync.addCheckData = reqSync.addCheckData;
         ackSync.subTotal = reqSync.subTotal;
         ackSync.bonus = reqSync.bonus;
         ackSync.total = reqSync.total;
-        write(clientSocket[sendId], (void *)&ackSync, sizeof(ackSync));
+        write(clientSocket[sendId], (void *)&ackSync, sizeof(AckSync));
         break;
     default:
         printf("wrong protocol mode in handling %d\n", protocolMode);
@@ -146,8 +147,7 @@ int main(int argc, char **argv){
             errorHandling("first. read() != int error");
             exit(1);
         }
-        cnt = read(clientSocket[gameCnt%2], recvBuf, sizeof(PROTOCOL_REQ_SYNC));
-        protocolHandling(protocolMode, gameCnt , (gameCnt%2)+1,  recvBuf);
+        protocolHandling(protocolMode, gameCnt , (gameCnt%2)+1);
     }
 
     for(i=0;i<2;i++){
