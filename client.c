@@ -597,6 +597,8 @@ int main(int argc, char** argv){
         printf("Usage %s <server ip> <port>", argv[0]);
         exit(1);
     }
+
+    
     init();
     
     /*
