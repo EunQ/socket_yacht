@@ -307,6 +307,8 @@ void flipDiceFix(int y, int x ){
 
 void initDices(){
     int i = 0;
+
+    preChar = ' ';
     curUserXidx = 1;
     curUserYidx = 0;
     curUserPos.y = boardCheckPosInfo[curUserXidx].startAddr[0].y;
@@ -321,7 +323,8 @@ void initDices(){
         backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] = ' '; 
         backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = '0';
     }
-
+    
+    backgroundBuf[curUserPos.y][curUserPos.x] = 'v';
     
 }
 
@@ -575,6 +578,12 @@ int update(char ch){
             write(clientSocket, &sendProtocol, sizeof(sendProtocol));
             write(clientSocket, &reqSync, sizeof(ReqSync));
         }
+        
+        setStatus(msg);
+        preChar = backgroundBuf[curUserPos.y][curUserPos.x];
+        backgroundBuf[curUserPos.y][curUserPos.x] = 'v';
+        
+        return res;
         break;
     case KEY_UP:
         //printf("key up\n");
@@ -709,12 +718,14 @@ int main(int argc, char** argv){
     for(i=0;i<12;i++){
         read(clientSocket, &protocolMode, sizeof(int));
         protocolHandling(protocolMode);
+        draw();
         while(1){
             char ch = getkey(0);
             int res = update(ch);
-            initDices();
             draw();
             if(res == UPDATE_END){
+                initDices();
+                draw();
                 break;
             }
         }   

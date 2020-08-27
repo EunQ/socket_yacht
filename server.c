@@ -6,7 +6,7 @@
 #include<sys/socket.h>
 #include"protocol.h"
 
-#define GAME_CNT 12
+#define GAME_CNT 24
 
 typedef struct _UserScoreInfo{
     int userId;
@@ -155,7 +155,7 @@ int main(int argc, char **argv){
     write(clientSocket[0], (void *)&protocolMode, sizeof(protocolMode));
     write(clientSocket[0], (void *)&initGame, sizeof(initGame));
 
-    getchar();
+    //getchar();
 
     for(gameCnt = 0; gameCnt < GAME_CNT; gameCnt++){
         int cnt = read(clientSocket[gameCnt%2], &protocolMode, sizeof(int));
