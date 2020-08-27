@@ -212,7 +212,7 @@ int rollDice(int dicePosY, int dicePosX, int milsec){
         backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
         //draw();
         printf("%d", num);
-        sleep(i);
+        usleep(i*1000);
     }
     //backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
     return num;
