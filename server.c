@@ -41,16 +41,21 @@ void decodingProtocol(int protocolMode, char * data, void * voidRevData){
 void protocolHandling(int protocolMode, int gameCnt, int sendId){
     //짝수는 0, 홀수는 1 idx가 가리키는 소켓으로 보낸다. sendId는 서버에 요청을 보낼 id
 
+    AckReady ackReady;
+    AckSync ackSync;
+    ReqSync reqSync;
+    int sendProtocol;
+    printf("protocol recv : %d\n", protocolMode);
     switch (protocolMode)
     {
     case PROTOCOL_REQ_READY:
-        AckReady ackReady;
         ackReady.userId =  sendId;  
+        sendProtocol = PROTOCOL_ACK_READY;
+        write(clientSocket[sendId], &sendProtocol, sizeof(int));
         write(clientSocket[sendId], (void *)&ackReady, sizeof(ackReady));
         break;
     case PROTOCOL_REQ_SYNC:
-        AckSync ackSync;
-        ReqSync reqSync;
+        sendProtocol = PROTOCOL_ACK_SYNC;
         read(clientSocket[gameCnt%2], &reqSync, sizeof(ReqSync));
         ackSync.userId = reqSync.userId;
         ackSync.addCheckIdx = reqSync.addCheckIdx;
@@ -58,6 +63,9 @@ void protocolHandling(int protocolMode, int gameCnt, int sendId){
         ackSync.subTotal = reqSync.subTotal;
         ackSync.bonus = reqSync.bonus;
         ackSync.total = reqSync.total;
+        printf("%d %d %d\n", reqSync.userId, reqSync.addCheckIdx, reqSync.addCheckData);
+        printf("send protocol %d, to id %d\n", sendProtocol, sendId);
+        write(clientSocket[sendId], &sendProtocol, sizeof(int));
         write(clientSocket[sendId], (void *)&ackSync, sizeof(AckSync));
         break;
     default:
@@ -122,7 +130,8 @@ int main(int argc, char **argv){
     
     clientAddrSize = sizeof(clientAddr[0]);
     for(i=0;i<2;i++){
-        clientSocket[i] = accept(serverSocket, (struct sockaddr*)&(clientAddr[i]), &clientAddr);
+        int addrLen = sizeof(clientAddr);
+        clientSocket[i] = accept(serverSocket, (struct sockaddr*)&(clientAddr[i]), &addrLen);
         if(clientSocket[i] == -1){
             fprintf(stderr,"%d ", i);
             errorHandling("accept() error");
@@ -132,14 +141,21 @@ int main(int argc, char **argv){
             errorHandling("first. read() != int error");
             exit(1);
         }
-        protocolHandling(protocolMode, 0, i, NULL);
+        protocolHandling(protocolMode, 0, i);
+        printf("add client : [%d]\n", i);
     }
     
     
     //server init();
     memset(&initGame, 0, sizeof(initGame));
     initGame.userId = 1;
-    protocolHandling(PROTOCOL_REQ_SYNC, 0, 0, &initGame);
+    initGame.addCheckData = -1;
+    //protocolHandling(PROTOCOL_REQ_SYNC, 0, 0);
+    protocolMode = PROTOCOL_ACK_SYNC;
+    write(clientSocket[0], (void *)&protocolMode, sizeof(protocolMode));
+    write(clientSocket[0], (void *)&initGame, sizeof(initGame));
+
+    getchar();
 
     for(gameCnt = 0; gameCnt < GAME_CNT; gameCnt++){
         int cnt = read(clientSocket[gameCnt%2], &protocolMode, sizeof(int));
@@ -147,7 +163,8 @@ int main(int argc, char **argv){
             errorHandling("first. read() != int error");
             exit(1);
         }
-        protocolHandling(protocolMode, gameCnt , (gameCnt%2)+1);
+        protocolHandling(protocolMode, gameCnt , ((gameCnt+1)%2));
+        //getchar();
     }
 
     for(i=0;i<2;i++){
