@@ -36,6 +36,7 @@
 #define DARW_HEGITH 28
 
 #define SUB_TOTAL_LIMIT 63
+#define ROLL_LIMIT 99
 
 char backgroundBuf[30][80];
 typedef struct _Pos{
@@ -112,12 +113,12 @@ void setStatus(const char * msg){
     strcpy(backgroundBuf[27] + 15, msg);
 }
 void setTotal(int addNum){
-    int buf[4];
+    char buf[4];
     sprintf(buf, "%03d", addNum);
     strncpy(backgroundBuf[pScorekPos[curUserId][14].y]+pScorekPos[curUserId][14].x, buf,3);
 }
 void setSubTotal(int addNum){
-    int buf[4];
+    char buf[4];
     sprintf(buf, "%03d", addNum);
     strncpy(backgroundBuf[pScorekPos[curUserId][12].y]+pScorekPos[curUserId][12].x, buf,3);
 }
@@ -126,10 +127,11 @@ void setBonus(){
 }
 
 void setScore(int y, int x, int num){
-    int buf[3];
+    char buf[3];
     sprintf(buf, "%02d", num);
     strncpy(backgroundBuf[y]+x, buf,2);
 }
+
 
 /*
 #define CHOCIE      6
@@ -139,6 +141,7 @@ void setScore(int y, int x, int num){
 #define L_STRAIGHT  10
 #define YACHT       11
 */
+
 int calChoice(){
     int res = 0;
     int i=0;
@@ -244,13 +247,11 @@ int calYacht(){
     
     for(i=0;i<5;i++){
         diceCnt[diceData[i]]++;
-    }
-    for(i=1;i<=6;i++){
-        if(diceCnt[i] == 0){
-            return 0;
+        if(diceCnt[diceData[i]] == 5){
+            return 50;
         }
     }
-    return 50;
+    return 0;
 }
 
 void update(char ch);
@@ -323,7 +324,7 @@ void init(){
     strcpy (backgroundBuf[21]  , "|                       |                       |                             |");
     strcpy (backgroundBuf[22]  , "|                       |                       |                             |");
     strcpy (backgroundBuf[23]  , "|  Total   :   000      |  Total   :   000      |                             |");
-    strcpy (backgroundBuf[24]  , "|                       |                       |    res  :  3 , roll [ ]     |");
+    strcpy (backgroundBuf[24]  , "|                       |                       |  count  :  0 , roll [ ]     |");
     strcpy (backgroundBuf[25]  , "|                       |                       |                             |");
     strcpy (backgroundBuf[26]  , " ----------------------------------------------------------------------------- ");
     strcpy (backgroundBuf[27]  , " status :                                                                      ");
@@ -370,13 +371,15 @@ void init(){
     
     srand(time(NULL));
 
-    rollCnt = 3;
+    rollCnt = ROLL_LIMIT;
+    
+    //backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
+    setScore(rollCntPos.y, rollCntPos.x, rollCnt);
 
     for(i=0;i<5;i++){
         diceData[i] = 0;
         backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(diceData[i] + '0');
     }
-
     update(0);
 }
 int rollDice(int dicePosY, int dicePosX, int milsec){
@@ -395,7 +398,7 @@ int rollDice(int dicePosY, int dicePosX, int milsec){
 }
 void rollCntDecrease(){
     rollCnt--;
-    backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
+    setScore(rollCntPos.y, rollCntPos.x, rollCnt);
 }
 int checkPosition(int y, int x, int* idx){
     int i=0;
@@ -453,10 +456,17 @@ void update(char ch){
             flipDiceFix(dicesFixPos[curPosIdx].y, dicesFixPos[curPosIdx].x);
             //backgroundBuf[dicesFixPos[curPosIdx].y][dicesFixPos[curPosIdx].x] = 'v';
         }
+        else if(diceData[0] == 0){
+            setStatus("roll the dices");
+        }
         else{
             //보드에서 점수를 얻기위해 체크하는 위치.
             int addTotal = 0;
-            printf("\n board score check\n");
+            char * msg = 0;
+            printf("\n board score check %d\n", curPosIdx);
+
+            backgroundBuf[pCheckPos[curUserId][curPosIdx].y][pCheckPos[curUserId][curPosIdx].x] = 'v';
+
             if(ACES <= curPosIdx && curPosIdx <= SIXES){
                 //여기서 curPosIdx+1는 주사위의 넘버의 수와 일치.
                 int diceCheckCnt = 0;
@@ -494,8 +504,8 @@ void update(char ch){
                 }
             }
             total += addTotal;
+            setScore(pScorekPos[curUserId][curPosIdx].y, pScorekPos[curUserId][curPosIdx].x, addTotal);
             setTotal(total);
-
         }
         break;
     case KEY_UP:
@@ -556,7 +566,7 @@ int main(){
         //backgroundBuf[secondCheckPos[i].y][secondCheckPos[i].x] = 'v';
     }
     for(i =0 ;i<5;i++){
-        backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(i+'1');
+        //backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(i+'1');
         //backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] = 'v';
     }
     draw();
