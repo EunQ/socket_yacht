@@ -107,7 +107,7 @@ void setStatus(const char * msg){
 void update(char ch);
 
 void gotoxy(int y,int x) {
-	printf("\033[%d;%df",y,x);
+    printf("%c[%d;%df",0x1B,y,x);
 	fflush(stdout);
 }
 
