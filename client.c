@@ -33,7 +33,9 @@
 
 #define DICE_NUM    5
 
-char backgroundBuf[27][80];
+#define DARW_HEGITH 28
+
+char backgroundBuf[30][80];
 typedef struct _Pos{
     int y;
     int x;
@@ -85,8 +87,8 @@ Pos dicesFixPos[6] = {
     {20, 71 },
     {24, 71 }
 };
-Pos resPos = {24, 61};
-int resCnt;
+Pos rollCntPos = {24, 61};
+int rollCnt;
 typedef struct _BoardCheckPosInfo{
     Pos* startAddr;
     int posCnt;
@@ -97,11 +99,18 @@ int curUserXidx;
 int curUserYidx;
 int curUserId;
 Pos curUserPos;
+char preChar;
+void setStatus(const char * msg){
+    strcpy(backgroundBuf[28] + 5, msg);
+}
+
 void update(char ch);
-void gotoxy(int x,int y) {
+
+void gotoxy(int y,int x) {
 	printf("\033[%d;%df",y,x);
 	fflush(stdout);
 }
+
 int getkey(int is_echo) {
     int ch; 
     struct termios old;
@@ -124,9 +133,21 @@ int getkey(int is_echo) {
     return ch;
 }
 
+void flipDiceFix(int y, int x){
+    
+    if(backgroundBuf[y][x] == 'v'){
+        backgroundBuf[y][x] = ' ';
+    }
+    else{
+        backgroundBuf[y][x] = 'v';
+    }
+    return;
+}
+
 void init(){
     int i;
-    strcpy (backgroundBuf[26]  , "0123456789012345678901234567890123456789012345678901234567890123456789012345678");
+    preChar = ' ';
+    strcpy (backgroundBuf[29]  , "0123456789012345678901234567890123456789012345678901234567890123456789012345678");
     strcpy (backgroundBuf[0]   , " ----------------------------------------------------------------------------- ");
     strcpy (backgroundBuf[1]   , "|                       |                       |                             |");
     strcpy (backgroundBuf[2]   , "|        1st            |        2nd            |          Dices      Fix     |");
@@ -153,7 +174,9 @@ void init(){
     strcpy (backgroundBuf[23]  , "|  Total   :   000      |   Total   :   000     |                             |");
     strcpy (backgroundBuf[24]  , "|                       |                       |    res  :  3 , roll [ ]     |");
     strcpy (backgroundBuf[25]  , "|                       |                       |                             |");
-    strcpy (backgroundBuf[26]   , " ----------------------------------------------------------------------------- ");
+    strcpy (backgroundBuf[26]  , " ----------------------------------------------------------------------------- ");
+    strcpy (backgroundBuf[27]  , " status :                                                                      ");
+    strcpy (backgroundBuf[28]  , " ----------------------------------------------------------------------------- ");
 
 
 
@@ -171,7 +194,7 @@ void init(){
     
     srand(time(NULL));
 
-    resCnt = 3;
+    rollCnt = 3;
 
     for(i=0;i<5;i++){
         diceData[i] = 0;
@@ -183,17 +206,20 @@ void init(){
 int rollDice(int dicePosY, int dicePosX, int milsec){
     int num = 0;
     for(int i=0;i<milsec;i++){
-        gotoxy(dicePosY,dicePosX);
+        gotoxy(dicePosY+2,dicePosX+1);
+        //printf("\n");
         num = (rand()%6)+1;
+        backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
+        //draw();
         printf("%d", num);
         sleep(i);
     }
-    backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
+    //backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
     return num;
 }
-void resDecrease(){
-    resCnt--;
-    backgroundBuf[resPos.y][resPos.x] = (char)('0' + resCnt);
+void rollCntDecrease(){
+    rollCnt--;
+    backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
 }
 int checkPosition(int y, int x, int* idx){
     int i=0;
@@ -221,24 +247,35 @@ void update(char ch){
     int curX, nextYidx;
     int plusNum = 1;
     int curPosIdx = 0;
-    backgroundBuf[curUserPos.y][curUserPos.x] = ' ';
+    backgroundBuf[curUserPos.y][curUserPos.x] = preChar;
+    int curPosStatus = 0;
     switch (ch)
     {
     case KEY_ENTER:
-        printf("enter");
-        int curPosStatus = checkPosition(curUserPos.y, curUserPos.x, &curPosIdx);
+        //printf("enter");
+        curPosStatus = checkPosition(curUserPos.y, curUserPos.x, &curPosIdx);
         if(curPosStatus == POS_DICE_ROLL){
             //roll 일때 위치.
-            for(i = 0;i<DICE_NUM;i++){
-                if(backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] != 'v'){
-                    int diceNum = rollDice(dicesShowPos[i].y, dicesShowPos[i].x, 25000);
-                    diceData[i] = diceNum;
+            if(rollCnt <= 0){
+                printf("rollCnt : %d\n", rollCnt);
+                setStatus("No roll count");
+            }
+            else{
+                for(i = 0;i<DICE_NUM;i++){
+                    //printf("show dice idx : %d\n", i);
+                    //printf("show dice Y : %d, X : %d\n", dicesShowPos[i].y, dicesShowPos[i].x);
+                    if(backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] != 'v'){
+                        int diceNum = rollDice(dicesShowPos[i].y, dicesShowPos[i].x, 25000);
+                        diceData[i] = diceNum;
+                    }
                 }
+                rollCntDecrease();
             }
         }
         else if(curPosStatus == POS_DICE_FIX){
             //주사위를 fix할때 위치.
-            backgroundBuf[dicesFixPos[curPosIdx].y][dicesFixPos[curPosIdx].x] = 'v';
+            flipDiceFix(dicesFixPos[curPosIdx].y, dicesFixPos[curPosIdx].x);
+            //backgroundBuf[dicesFixPos[curPosIdx].y][dicesFixPos[curPosIdx].x] = 'v';
         }
         else{
             //보드에서 점수를 얻기위해 체크하는 위치.
@@ -255,19 +292,19 @@ void update(char ch){
         }
         break;
     case KEY_UP:
-        printf("key up\n");
+        //printf("key up\n");
         plusNum = -1;
     case KEY_DOWN:
-        printf("key down\n");
+        //printf("key down\n");
         j = curUserYidx;
         for(i=0;i<boardCheckPosInfo[curUserXidx].posCnt;i++){
             int nextX,nextY;
             nextYidx = (j + plusNum + boardCheckPosInfo[curUserXidx].posCnt)%boardCheckPosInfo[curUserXidx].posCnt;
-            printf("nextYidx = %d\n", nextYidx);
+            //printf("nextYidx = %d\n", nextYidx);
             nextX = boardCheckPosInfo[curUserXidx].startAddr[nextYidx].x;
             nextY = boardCheckPosInfo[curUserXidx].startAddr[nextYidx].y;
-            printf("nextY : %d, nextX : %d\n", nextY, nextX);
-            if(backgroundBuf[nextY][nextX] == ' '){
+            //printf("nextY : %d, nextX : %d\n", nextY, nextX);
+            if(backgroundBuf[nextY][nextX] == ' ' || curUserXidx == 1){
                 curUserPos.x = nextX;
                 curUserPos.y = nextY;
                 curUserYidx = nextYidx;
@@ -287,15 +324,17 @@ void update(char ch){
         curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[0].x;
         break;
     }
-    
+
+    preChar = backgroundBuf[curUserPos.y][curUserPos.x];
     backgroundBuf[curUserPos.y][curUserPos.x] = 'o';
     
 }
 void draw(){
     int i;
+    //system("clear");
     gotoxy(0, 1);
     printf("\n");
-    for(i=0;i<27;i++){
+    for(i=0;i<=DARW_HEGITH;i++){
         printf("%s\n",backgroundBuf[i]);
     }
     printf("\n");
