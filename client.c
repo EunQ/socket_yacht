@@ -3,7 +3,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include<time.h>
-#include <termios.h> 
+#include<termios.h> 
 
 //check borad idx
 #define ACES        0
@@ -36,7 +36,7 @@
 #define DARW_HEGITH 28
 
 #define SUB_TOTAL_LIMIT 63
-#define ROLL_LIMIT 99
+#define ROLL_LIMIT 3
 
 char backgroundBuf[30][80];
 typedef struct _Pos{
@@ -202,12 +202,13 @@ int calSStraight(){
         diceCnt[diceData[i]]++;
     }
     for(i=1;i<=3;i++){
-        int checkCnt = 1;
-        for(int j=i;j<=i+3;j++){
+        int checkCnt = 0;
+        for(j=i;j<=i+3;j++){
             if(diceCnt[j] == 0){
                 checkCnt = 0;
                 break;
             }
+            checkCnt++;
         }
         if(checkCnt == 4){
             return 15;
@@ -225,12 +226,13 @@ int calLStraight(){
         diceCnt[diceData[i]]++;
     }
     for(i=1;i<=2;i++){
-        int checkCnt = 1;
+        int checkCnt = 0;
         for(int j=i;j<=i+4;j++){
             if(diceCnt[j] == 0){
                 checkCnt = 0;
                 break;
             }
+            checkCnt++;
         }
         if(checkCnt == 5){
             return 30;
@@ -283,7 +285,7 @@ int getkey(int is_echo) {
     return ch;
 }
 
-void flipDiceFix(int y, int x){
+void flipDiceFix(int y, int x ){
     
     if(backgroundBuf[y][x] == 'v'){
         backgroundBuf[y][x] = ' ';
@@ -292,6 +294,22 @@ void flipDiceFix(int y, int x){
         backgroundBuf[y][x] = 'v';
     }
     return;
+}
+
+void initDices(){
+    int i = 0;
+    curUserXidx = 1;
+    curUserYidx = 0;
+    curUserPos.y = boardCheckPosInfo[curUserXidx].startAddr[0].y;
+    curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[0].x;
+
+    rollCnt = ROLL_LIMIT;
+
+    setScore(rollCntPos.y, rollCntPos.x, rollCnt);
+
+    for(i=0;i<DICE_NUM;i++){
+        backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] = ' '; 
+    }
 }
 
 void init(){
@@ -363,18 +381,22 @@ void init(){
     boardCheckPosInfo[1].startAddr = dicesFixPos;
     boardCheckPosInfo[1].posCnt = sizeof(dicesFixPos) / sizeof(Pos);
 
+    /*
     curUserXidx = 1;
     curUserYidx = 0;
     curUserPos.y = boardCheckPosInfo[curUserXidx].startAddr[0].y;
     curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[0].x;
 
-    
-    srand(time(NULL));
-
     rollCnt = ROLL_LIMIT;
     
-    //backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
     setScore(rollCntPos.y, rollCntPos.x, rollCnt);
+    */
+
+    initDices();
+
+    srand(time(NULL));
+    
+    //backgroundBuf[rollCntPos.y][rollCntPos.x] = (char)('0' + rollCnt);
 
     for(i=0;i<5;i++){
         diceData[i] = 0;
@@ -384,6 +406,7 @@ void init(){
 }
 int rollDice(int dicePosY, int dicePosX, int milsec){
     int num = 0;
+    int usleepMul = 1000;
     for(int i=0;i<milsec;i++){
         gotoxy(dicePosY+2,dicePosX+1);
         //printf("\n");
@@ -391,7 +414,10 @@ int rollDice(int dicePosY, int dicePosX, int milsec){
         backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
         //draw();
         printf("%d", num);
-        usleep(i*1000);
+        #ifdef __VM__
+            usleepMul = 10;
+        #endif 
+        usleep(i*usleepMul);
     }
     //backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
     return num;
@@ -426,6 +452,7 @@ void update(char ch){
     int curX, nextYidx;
     int plusNum = 1;
     int curPosIdx = 0;
+    char *msg = 0;
     backgroundBuf[curUserPos.y][curUserPos.x] = preChar;
     int curPosStatus = 0;
     switch (ch)
@@ -437,13 +464,18 @@ void update(char ch){
             //roll 일때 위치.
             if(rollCnt <= 0){
                 printf("rollCnt : %d\n", rollCnt);
-                setStatus("No roll count");
+                msg = "NO ROLL COUNT";
+                //setStatus("No Roll Count")
             }
             else{
                 for(i = 0;i<DICE_NUM;i++){
                     //printf("show dice idx : %d\n", i);
                     //printf("show dice Y : %d, X : %d\n", dicesShowPos[i].y, dicesShowPos[i].x);
                     if(backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] != 'v'){
+                        int mlisec = 25000;
+                        #ifdef __VM__
+                        mlisec = 250;
+                        #endif
                         int diceNum = rollDice(dicesShowPos[i].y, dicesShowPos[i].x, 25000);
                         diceData[i] = diceNum;
                     }
@@ -457,7 +489,8 @@ void update(char ch){
             //backgroundBuf[dicesFixPos[curPosIdx].y][dicesFixPos[curPosIdx].x] = 'v';
         }
         else if(diceData[0] == 0){
-            setStatus("roll the dices");
+            msg = "ROLL THE DICES";
+            //setStatus("roll the dices");
         }
         else{
             //보드에서 점수를 얻기위해 체크하는 위치.
@@ -542,6 +575,7 @@ void update(char ch){
         break;
     }
 
+    setStatus(msg);
     preChar = backgroundBuf[curUserPos.y][curUserPos.x];
     backgroundBuf[curUserPos.y][curUserPos.x] = 'o';
     
@@ -557,10 +591,15 @@ void draw(){
     printf("\n");
     fflush(stdout);
 }
-int main(){
+int main(int argc, char** argv){
     int i,j;
+    if(argc != 3){
+        printf("Usage %s <server ip> <port>", argv[0]);
+        exit(1);
+    }
     init();
     
+    /*
     for(i=0;i<12;i++){
         //backgroundBuf[firstCheckPos[i].y][firstCheckPos[i].x] = 'v';
         //backgroundBuf[secondCheckPos[i].y][secondCheckPos[i].x] = 'v';
@@ -569,6 +608,8 @@ int main(){
         //backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(i+'1');
         //backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] = 'v';
     }
+    */
+
     draw();
     while(1){
         char ch = getkey(0);
