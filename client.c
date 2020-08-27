@@ -4,6 +4,9 @@
 #include<stdlib.h>
 #include<time.h>
 #include<termios.h> 
+#include<arpa/inet.h>
+#include<sys/socket.h>
+#include"protocol.h"
 
 //check borad idx
 #define ACES        0
@@ -112,18 +115,18 @@ int bonus;
 void setStatus(const char * msg){
     strcpy(backgroundBuf[27] + 15, msg);
 }
-void setTotal(int addNum){
+void setTotal(int addNum, int id){
     char buf[4];
     sprintf(buf, "%03d", addNum);
-    strncpy(backgroundBuf[pScorekPos[curUserId][14].y]+pScorekPos[curUserId][14].x, buf,3);
+    strncpy(backgroundBuf[pScorekPos[id][14].y]+pScorekPos[id][14].x, buf,3);
 }
-void setSubTotal(int addNum){
+void setSubTotal(int addNum, int id){
     char buf[4];
     sprintf(buf, "%03d", addNum);
-    strncpy(backgroundBuf[pScorekPos[curUserId][12].y]+pScorekPos[curUserId][12].x, buf,3);
+    strncpy(backgroundBuf[pScorekPos[id][12].y]+pScorekPos[id][12].x, buf,3);
 }
-void setBonus(){
-    strncpy(backgroundBuf[pScorekPos[curUserId][13].y]+pScorekPos[curUserId][13].x, "35",2);
+void setBonus(int id){
+    strncpy(backgroundBuf[pScorekPos[id][13].y]+pScorekPos[id][13].x, "35",2);
 }
 
 void setScore(int y, int x, int num){
@@ -452,7 +455,7 @@ void update(char ch){
     int curX, nextYidx;
     int plusNum = 1;
     int curPosIdx = 0;
-    char *msg = 0;
+    char *msg = "RUN";
     backgroundBuf[curUserPos.y][curUserPos.x] = preChar;
     int curPosStatus = 0;
     switch (ch)
@@ -472,11 +475,11 @@ void update(char ch){
                     //printf("show dice idx : %d\n", i);
                     //printf("show dice Y : %d, X : %d\n", dicesShowPos[i].y, dicesShowPos[i].x);
                     if(backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] != 'v'){
-                        int mlisec = 25000;
+                        int mlisec = 20000;
                         #ifdef __VM__
                         mlisec = 250;
                         #endif
-                        int diceNum = rollDice(dicesShowPos[i].y, dicesShowPos[i].x, 25000);
+                        int diceNum = rollDice(dicesShowPos[i].y, dicesShowPos[i].x, mlisec);
                         diceData[i] = diceNum;
                     }
                 }
@@ -510,11 +513,11 @@ void update(char ch){
                 }
                 addTotal = diceCheckCnt * (curPosIdx+1);
                 subTotal += addTotal;
-                setSubTotal(subTotal);
+                setSubTotal(subTotal, curUserId);
                 if(subTotal >= SUB_TOTAL_LIMIT && bonus == 0){
                     bonus = 35;
                     addTotal += bonus;
-                    setBonus();
+                    setBonus(curUserId);
                 }
             }else{
                 if(curPosIdx == CHOCIE){
@@ -538,7 +541,7 @@ void update(char ch){
             }
             total += addTotal;
             setScore(pScorekPos[curUserId][curPosIdx].y, pScorekPos[curUserId][curPosIdx].x, addTotal);
-            setTotal(total);
+            setTotal(total, curUserId);
         }
         break;
     case KEY_UP:
@@ -574,7 +577,6 @@ void update(char ch){
         curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[0].x;
         break;
     }
-
     setStatus(msg);
     preChar = backgroundBuf[curUserPos.y][curUserPos.x];
     backgroundBuf[curUserPos.y][curUserPos.x] = 'o';
@@ -591,16 +593,94 @@ void draw(){
     printf("\n");
     fflush(stdout);
 }
+void errorHandling(char *msg){
+    fprintf(stderr, "%s\n", msg);
+    exit(1);
+}
+char recvBuf[4096];
+int clientSocket;
+int encodingCheckList(){
+    //자신의 정보를 비트마스크로 인코딩한다.
+    
+}
+void decodingCheckList(int checkList, int id){
+    //상대방의 정보를 디코딩하여 픽스값에 넣는다.
+
+}
+void protocolHandling(int protocolMode){
+
+    switch (protocolMode)
+    {
+    case PROTOCOL_ACK_READY:
+        AckReady ackReady;
+        read(clientSocket, &ackReady, sizeof(AckReady));
+        curUserId = ackReady.userId;
+        break;
+    case PROTOCOL_ACK_SYNC:
+        AckSync ackSync;
+        read(clientSocket, &ackSync, sizeof(AckSync));
+        
+        break;
+    case PROTOCOL_ACK_END:
+        setStatus("Game end");
+        exit(0);
+
+        break;
+    default:
+        printf("wrong protocol mode in handling %d\n", protocolMode);
+        break;
+    }
+}
 int main(int argc, char** argv){
     int i,j;
+    struct sockaddr_in serverAddr;
+    struct sockaddr_in clientAddr;
+    AckSync initGame;
+    int clientAddrSize = 0;
+    int i,j;
+    int gameCnt = 0;
+    int protocolMode= 0;
+    int protocolMode = PROTOCOL_REQ_READY;
+    AckReady ackReady;
+    
     if(argc != 3){
         printf("Usage %s <server ip> <port>", argv[0]);
         exit(1);
     }
+    
+    if((clientSocket = socket(PF_INET, SOCK_STREAM, 0)) < 0 ){
+        errorHandling("socket() error");
+    }
 
+    memset(&serverAddr, 0 ,sizeof(serverAddr));
+
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
+    serverAddr.sin_port = htons(atoi(argv[2]));
     
+    if(connect(clientSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0){
+        errorHandling("connect() error");
+    }
+    
+    write(clientSocket, &protocolMode, sizeof(int));
+    read(clientSocket, &protocolMode, sizeof(int));
+    if(protocolMode != PROTOCOL_ACK_READY){
+        errorHandling("probleam at init game");
+    }
+    //read(clientSocket, recvBuf, sizeof(int));
+    protocolHandling(protocolMode);
+
     init();
-    
+
+    for(i=0;i<12;i++){
+        read(clientSocket, &protocolMode, sizeof(int));
+        draw();
+        while(1){
+            char ch = getkey(0);
+            update(ch);
+            draw();
+        }   
+    }    
     /*
     for(i=0;i<12;i++){
         //backgroundBuf[firstCheckPos[i].y][firstCheckPos[i].x] = 'v';
@@ -612,11 +692,6 @@ int main(int argc, char** argv){
     }
     */
 
-    draw();
-    while(1){
-        char ch = getkey(0);
-        update(ch);
-        draw();
-    }
+    
     return 0;
 }
