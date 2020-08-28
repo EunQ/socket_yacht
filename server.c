@@ -170,6 +170,7 @@ int main(int argc, char **argv){
     for(i=0;i<2;i++){
         int data = PROTOCOL_ACK_END;
         write(clientSocket[i] , &data, sizeof(int));
+        printf("send game end protocol to [%d]\n", i);
     }
 
 

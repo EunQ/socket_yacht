@@ -44,6 +44,8 @@
 #define UPDATE_END          1
 #define UPDATE_CONTINUE     2
 
+#define CLIENT_GAME_CNT     12
+
 char backgroundBuf[30][80];
 typedef struct _Pos{
     int y;
@@ -164,12 +166,14 @@ int calFourKind(){
     int diceCnt[7] = {0};
     int i=0;
     int res = 0;
+    int sum = 0;
     for(i=0;i<5;i++){
         diceCnt[diceData[i]]++;
+        sum += diceData[i];
     }
     for(i=1;i<=6;i++){
         if(diceCnt[i] >= 4){
-            res = (i+1) * diceCnt[i];
+            return sum;
         }
     }
     return res;
@@ -190,10 +194,10 @@ int calFullHouse(){
     }
     for(i=1;i<=6;i++){
         if(diceCnt[i] == 3){
-            threeTotal = (i+1) * 3;
+            threeTotal = i * 3;
         }
         else if(diceCnt[i] ==2 ){
-            twoTotal = (i*1) * 2;
+            twoTotal = i * 2;
         }
     }
     if(threeTotal > 0 && twoTotal >0){
@@ -324,7 +328,7 @@ void initDices(){
         backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = '0';
     }
     
-    backgroundBuf[curUserPos.y][curUserPos.x] = 'v';
+    backgroundBuf[curUserPos.y][curUserPos.x] = 'o';
     
 }
 
@@ -654,7 +658,7 @@ void protocolHandling(int protocolMode){
     case PROTOCOL_ACK_SYNC:
         read(clientSocket, &ackSync, sizeof(AckSync));
         anoterId = ackSync.userId;
-        if(ackSync.addCheckData > 0){
+        if(ackSync.addCheckData >= 0){
             backgroundBuf[pCheckPos[anoterId][ackSync.addCheckIdx].y][pCheckPos[anoterId][ackSync.addCheckIdx].x] = 'v';
             setScore(pScorekPos[anoterId][ackSync.addCheckIdx].y,pScorekPos[anoterId][ackSync.addCheckIdx].x, ackSync.addCheckData);
             setSubTotal(ackSync.subTotal, anoterId);
@@ -714,21 +718,24 @@ int main(int argc, char** argv){
     draw();
     
     printf("my curId : %d\n", curUserId);
-
-    for(i=0;i<12;i++){
+    
+    while(1){
         read(clientSocket, &protocolMode, sizeof(int));
         protocolHandling(protocolMode);
         draw();
-        while(1){
-            char ch = getkey(0);
-            int res = update(ch);
-            draw();
-            if(res == UPDATE_END){
-                initDices();
+        if(gameCnt < CLIENT_GAME_CNT){
+            while(1){
+                char ch = getkey(0);
+                int res = update(ch);
                 draw();
-                break;
-            }
-        }   
+                if(res == UPDATE_END){
+                    gameCnt++;
+                    initDices();
+                    draw();
+                    break;
+                }
+            }   
+        }
     }    
     /*
     for(i=0;i<12;i++){
