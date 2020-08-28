@@ -618,8 +618,15 @@ int update(char ch){
         //printf("key left");
         curUserYidx = 0;
         curUserXidx = (curUserXidx+1)%2;
-        curUserPos.y = boardCheckPosInfo[curUserXidx].startAddr[0].y;
-        curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[0].x;
+        for(curUserYidx=0;curUserYidx<boardCheckPosInfo[curUserXidx].posCnt;curUserYidx++){
+            curUserPos.y = boardCheckPosInfo[curUserXidx].startAddr[curUserYidx].y;
+            curUserPos.x = boardCheckPosInfo[curUserXidx].startAddr[curUserYidx].x;
+            if(backgroundBuf[curUserPos.y][curUserPos.x] == ' '){
+                break;
+            }
+            
+        }
+        
         break;
     }
     setStatus(msg);
