@@ -126,7 +126,6 @@ int main(int argc, char **argv){
     if(listen(serverSocket, 5) == -1){
         errorHandling("listen() error");
     }   
-
     
     clientAddrSize = sizeof(clientAddr[0]);
     for(i=0;i<2;i++){
@@ -145,17 +144,13 @@ int main(int argc, char **argv){
         printf("add client : [%d]\n", i);
     }
     
-    
     //server init();
     memset(&initGame, 0, sizeof(initGame));
     initGame.userId = 1;
     initGame.addCheckData = -1;
-    //protocolHandling(PROTOCOL_REQ_SYNC, 0, 0);
     protocolMode = PROTOCOL_ACK_SYNC;
     write(clientSocket[0], (void *)&protocolMode, sizeof(protocolMode));
     write(clientSocket[0], (void *)&initGame, sizeof(initGame));
-
-    //getchar();
 
     for(gameCnt = 0; gameCnt < GAME_CNT; gameCnt++){
         int cnt = read(clientSocket[gameCnt%2], &protocolMode, sizeof(int));
@@ -164,7 +159,6 @@ int main(int argc, char **argv){
             exit(1);
         }
         protocolHandling(protocolMode, gameCnt , ((gameCnt+1)%2));
-        //getchar();
     }
 
     for(i=0;i<2;i++){

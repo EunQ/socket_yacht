@@ -432,19 +432,21 @@ void init(){
 }
 int rollDice(int dicePosY, int dicePosX){
     int num = 0;
-    int usleepMul = 1000;
-    int milsec = 2500;
-    for(int i=0;i<milsec;i++){
+    //int usleepMul = 100;
+    int milsec = 220;
+    for(int i=1;i<=milsec;i+=10){
         gotoxy(dicePosY+2,dicePosX+1);
         //printf("\n");
         num = (rand()%6)+1;
         backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
         //draw();
         printf("%d", num);
+        /*
         #ifdef __VM__
             usleepMul = 10;
-        #endif 
-        usleep(i*usleepMul);
+        #endif
+        */  
+        usleep(i*milsec);
     }
     //backgroundBuf[dicePosY][dicePosX] = (char)(num+'0');
     return num;
@@ -682,6 +684,8 @@ void protocolHandling(int protocolMode){
         break;
     }
 }
+
+
 int main(int argc, char** argv){
     int i,j;
     struct sockaddr_in serverAddr;
@@ -720,7 +724,6 @@ int main(int argc, char** argv){
     //read(clientSocket, recvBuf, sizeof(int));
     protocolHandling(protocolMode);
 
-
     init();
     draw();
     
@@ -744,17 +747,5 @@ int main(int argc, char** argv){
             }   
         }
     }    
-    /*
-    for(i=0;i<12;i++){
-        //backgroundBuf[firstCheckPos[i].y][firstCheckPos[i].x] = 'v';
-        //backgroundBuf[secondCheckPos[i].y][secondCheckPos[i].x] = 'v';
-    }
-    for(i =0 ;i<5;i++){
-        //backgroundBuf[dicesShowPos[i].y][dicesShowPos[i].x] = (char)(i+'1');
-        //backgroundBuf[dicesFixPos[i].y][dicesFixPos[i].x] = 'v';
-    }
-    */
-
-    
     return 0;
 }

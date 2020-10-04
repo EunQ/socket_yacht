@@ -1,7 +1,0 @@
-!#/bin/bash
-clear;
-for file in *.c
-do
-echo "make ${file}"
-gcc -g -o ${file%.*}.out ${file};
-done
